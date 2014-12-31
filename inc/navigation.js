@@ -26,7 +26,7 @@ document.write('\
 					<a href="emphasis.html">Areas of Emphasis</a>\
 				</li>\
 				<li>\
-					<a href="http://www.bc.edu/schools/cas/cs/academics/bachelors_theses.html">Honors Theses</a>\
+					<a href="honors.html">Honors Program</a>\
 				</li>\
 				<li>\
 					<a href="FAQ.html">FAQ</a>\

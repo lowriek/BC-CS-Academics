@@ -1,0 +1,1274 @@
+#!/usr/local/bin/perl -T
+
+package SystemIDemo;
+
+$false = 0;
+$true = 1;
+
+#use warnings;
+#use strict;
+use Sys::Hostname;
+use POSIX ":signal_h";
+use CGI qw(:standard);
+$CGI::POST_MAX=32768;  # max 32K posts
+
+$query = new CGI;
+
+$| = 1;
+
+$valid_rank = $true;
+$valid_term = $true;
+$valid_impl = $true;
+$valid_epath = $true;
+
+##############################################################################
+
+$error_report_address = "compositional-web-bugs\@types.bu.edu";
+
+# Web page style
+our $background_color = "#fffff9";
+our $figure_color = "#eeeeee";
+our $figure2_color = "#dddddd";
+our $header_color = "#cccccc";
+
+$done = "<font color=\"green\">(Done)</font>";
+$processing = "<blink><font color=\"#dfaf00\">(Processing)</font></blink>";
+$error = "<font color=\"red\">(Error)</font>";
+
+$javadir = "church/java";
+$lambda2xml = "church/src/lambda2xml-haskell.old-but-still-used/lambda2xml";
+$java_inference="systemi.DriverXML";
+$haskell_inference="church/src/Carlier-implementation-I/infer";
+$sml_inference="church/src/Kfoury-Wells-implementation/bin/infer";
+$lambda_schema = "church/compositional-analysis/lambda-xml/lambda.xsd";
+$systemi_schema = "church/compositional-analysis/system-i/system-i.xsd";
+$style_dir = "church/compositional-analysis/system-i";
+$xml_stylesheet = $style_dir."/system-i.xml.xsl";
+$postscript_stylesheet = $style_dir."/system-i.latex.xsl";
+$text_stylesheet = $style_dir."/system-i.txt.xsl";
+$xhtml_stylesheet = $style_dir."/system-i.xhtml.xsl";
+if (hostname eq "buddha") {
+    $ENV{PATH}="/usr/local/bin:/bin:/usr/bin:/usr/X11R6/bin";
+    $sml = "/usr/bin/sml";  # 110.0.7
+    $gzip = "/bin/gzip";
+    $ps2pdf = "/u1/pg/sebc/opt/i686-pc-linux-gnu/ghostscript-7.05/bin/ps2pdf";
+    $java = "/usr/bin/java"; # 1.4.0
+    $saxon = "com.icl.saxon.StyleSheet";
+    $msv = "com.sun.msv.driver.textui.Driver";
+    $dvips = "/usr/bin/dvips -z -Ppdf -G0 -D600";
+    $latex = "/usr/bin/latex";
+    $ENV{CLASSPATH}="./:/usr/java/j2sdk1.4.0/jre/lib/rt.jar";
+} else {
+    $ENV{PATH}="/usr/local/bin:/bin:/usr/bin:/usr/ucb:/usr/bin/X11";
+    $ENV{LD_LIBRARY_PATH}="/usr/local/lib";
+    $sml = "/usr/local/bin/sml";
+    $gzip = "/usr/local/bin/gzip";
+    $ps2pdf = "ps2pdf14";
+    $java = "/bin/java";
+    $saxon = "com.icl.saxon.StyleSheet";
+    $msv = "com.sun.msv.driver.textui.Driver";
+    $dvips = "/usr/local/bin/dvips -z -Ppdf -G0 -D600";
+    $latex = "/usr/local/bin/latex";
+    $ENV{CLASSPATH}="./:/usr/java/jre/lib/rt.jar";
+}
+$ENV{CLASSPATH}=$ENV{CLASSPATH}.":$javadir/saxon/saxon-fop.jar:$javadir/saxon/saxon-jdom.jar:$javadir/saxon/saxon.jar:$javadir/jaxp-1.1/crimson.jar:$javadir/jaxp-1.1/jaxp.jar:$javadir/jaxp-1.1/xalan.jar:$javadir/msv-20010910/isorelax.jar:$javadir/msv-20010910/relaxngdatatype.jar:$javadir/msv-20010910/xsdlib.jar:$javadir/msv-20010910/msv.jar:./church/src/Ori-Implementation/systemi.jar:$javadir";
+
+
+$convert_message = "Parsing and converting your term into XML.";
+
+# Status messages
+$inference_message = "Performing System I principal typing inference on your term.";
+$validate1_message = "Validating XML output from parsing against the Lambda schema.";
+$validate2_message = "Validating XML output from typing inference against the System I schema.";
+$style_message = "Applying the selected XML Stylesheet on the output from inference.";
+
+$max_rank = 8;
+
+# Assign a session code
+$session = unpack("H*", pack("Nn", time, $$));
+
+$general_style_params = ['Initial Typing Judgement',
+                         'Initial Skeleton',
+                         'Unification Information',
+                         'Final Typing Judgement',
+                         'Final Skeleton or Derivation'];
+
+$standard_style_params = ['Initial Generated Constraint Set',
+                          'Constraint Set at Failure',
+                          'Final Substitution'];
+
+$tracing_style_params = ['Constraint Sets',
+                         'Selected Substitutions',
+                         'Substitutions',
+                         'Incremental Skeletons'];
+
+$xml_tracing_style_params = ['Selected Substitutions',
+                             'Incremental Skeletons'];
+
+##############################################################################
+
+if($query->param("Action") eq "Generate") {
+
+  $new_url = $query->self_url();
+  $new_url =~ s/Action=Generate\;//;
+  print $query->redirect($new_url);
+
+} elsif(!$query->param("Action")) {
+
+  display_form($valid_rank, $valid_term, $valid_impl, $valid_epath);
+
+} else {
+
+##############################################################################
+##############################################################################
+
+# The code that performs the inference and creates the status/progress page
+
+##############################################################################
+
+  # Code to make sure the inputs we were given are sane
+  $upload_file = $query->param('Upload');
+
+  if(!($query->param("Rank") =~ /\d/) || 
+     ($query->param("Rank") =~ /\D/) ||
+     $query->param("Rank") > $max_rank) {
+    $valid_rank = $false;
+  }	
+
+  if(($query->param("Term") =~ /^\s*$/) && 
+     ($query->param("Examples") =~ /^\s*$/) &&
+    !$upload_file) {
+    $valid_term = $false;
+  }
+
+  if(!($query->param("Examples") =~ /^\s*$/) &&
+     (!$upload_file) &&
+     ($query->param("Term") =~ /^\s*$/) &&
+     !($query->param("TermLanguage") eq "SML")) {
+    $valid_impl = $false;
+  }
+
+  if(($query->param("Implementation") eq "Java") &&
+     ($query->param("EPathEnvironment") eq "on")) {
+    $valid_epath = $false;
+  }
+
+  # If we got bad inputs notify the user by redisplaying the original form
+  if(!$valid_rank || !$valid_term || !$valid_impl || !$valid_epath) {
+    display_form($valid_rank, $valid_term, $valid_impl, $valid_epath);
+    exit
+  }
+
+##############################################################################
+
+  # Initially the status is empty
+  @status = ();
+
+##############################################################################
+
+  # Write out our first progress message
+  push @status, "$convert_message $processing";
+  write_status_page(-status=>[@status]);
+ 
+  # Fork a child to handle the remainder of the session after redirecting
+  $childpid = fork;
+  if($childpid != 0) {
+    $new_url = $query->self_url();
+    $new_url =~ s/^(.*)\/(.*)$/$1\//;
+    print $query->redirect($new_url."$session.html");
+    #waitpid($childpid, 0);
+    exit;
+  }
+  open STDIN, "</dev/null";
+  open STDOUT, ">/dev/null";
+
+  # Figure out where we are getting our term from.
+  if($upload_file) {
+    @text = <$upload_file>;
+    $term = "@text";
+  } elsif (!($query->param("Term") =~ /^\s*$/)) {
+    $term = $query->param("Term");
+  } else {
+    $term = $query->param("Examples");
+  }
+
+  if($query->param("TermLanguage") eq "SML") {
+    $syntax = "s";
+  } elsif($query->param("TermLanguage") eq "Haskell") {
+    $syntax = "c";
+  } elsif($query->param("TermLanguage") eq "Scheme") {
+    $syntax = "l";
+  } else {
+    pop @status;
+    push @status, "$convert_message $error";
+    write_report_page(-status => [@status],
+                      -reportsub => sub { my $FILE = shift(@_);
+                        print $FILE "You somehow managed to send us an invalid syntax selection, perhaps even intentionally.  Naughty Naughty.  Try again.", br;});
+  }
+
+  # Parse the term, converting to XML
+  $errors = parse_term(-term=>$term,
+                       -language=>$syntax,
+                       -output=>"/tmp/input-xml.$$");
+
+  # If there were errors, report them to the user
+  if($errors) {
+    pop @status;
+    push @status, "$convert_message $error";
+    write_report_page(-status => [@status],
+                      -reportsub => sub { my $FILE = shift(@_);
+                        print $FILE "Unable to parse your term:", br,
+                          "<div style=\"font-family:monospace;\">", $errors, "</div>"; });
+
+
+    #delete_files("/tmp/input-xml.$$");
+    exit;
+  }
+  pop @status;
+  push @status, "$convert_message $done";
+
+
+##############################################################################
+
+  push @status, "$validate1_message $processing";
+  write_status_page(-status=>[@status]);
+
+  # Validate the XML generated by the parser as a sanity check
+  $errors = validate_xml(-input=>"/tmp/input-xml.$$",
+                         -schema=>$lambda_schema);
+
+  # If there were errors, tell the user and maintainers
+  if($errors) {
+    pop @status;
+    push @status, "$validate1_message $error";
+
+    send_error_report($errors);
+
+    write_report_page(-status=>[@status],
+                      -reportsub => sub {
+                        my $FILE = shift(@_);
+                        print $FILE "Internal Consistency Error:", br,
+                        "<font color=\"red\"><pre>\n", $errors,
+                          "</font></pre>", br, "The maintainers have been notified."; });
+
+    delete_files("/tmp/input-xml.$$");
+    exit;
+  }
+  pop @status;
+  push @status, "$validate1_message $done";
+
+  ##############################################################################
+
+  push @status, "$inference_message $processing";
+  write_status_page(-status=>[@status]);
+
+  if($query->param("Rank") =~ /\d/) {
+    $untainted_rank = $&;
+  } else {
+    pop @status;
+    push @status, "$inference_message $error";
+    write_report_page(-status => [@status],
+                      -reportsub => sub { my $FILE = shift(@_);
+                        print $FILE "You somehow managed to send us an invalid rank, perhaps even intentionally.  Naughty Naughty.  Try again.", br;});
+
+    # Do something better here
+  }
+
+  # Peform the actual typing inference
+  $errors = infer_typing(-input=>"/tmp/input-xml.$$",
+                        -output=>"/tmp/output-xml.$$",
+                        -rank=>$untainted_rank,
+                        -implementation=>$query->param("Implementation"));
+
+  # Two possible types of errors: inference failed or inference timed out.
+  # If the inference engine chokes for other reasons
+  # we have no way of knowing about it at present
+  pop @status;
+  if($errors == 1) {
+    $inference_result = "<font color=\"red\">(Done - inference failed)</font>";
+  } elsif($errors == 2) {
+    push @status, "$inference_message $error";
+
+    write_report_page(-status=>[@status],
+                      -reportsub => sub {
+                        my $FILE = shift(@_);
+                        print $FILE br, "<font color=\"red\">",
+                          "Type inference timed out.  This may mean that the term you requested requires more time to process than we allow.",
+                          "</font>"; });
+
+    delete_files("/tmp/input-xml.$$");
+    exit;
+  } else {
+    $inference_result = "<font color=\"green\">(Done - inference succeed)</font>";
+  }
+  push @status, "$inference_message $inference_result";
+
+  delete_files("/tmp/input-xml.$$");
+  
+  ##############################################################################
+  
+  push @status, "$validate2_message $processing";
+  write_status_page(-status=>[@status]);
+
+  # Validate the XML output from typing inference as a sanity check
+  $errors = validate_xml(-input=>"/tmp/output-xml.$$",
+                         -schema=>$systemi_schema);
+
+  # If there were errors, tell the user and maintainers
+  if($errors) {
+    pop @status;
+    push @status, "$validate2_message $error";
+
+    send_error_report($errors);
+
+    write_report_page(-status=>[@status],
+                      -reportsub => sub {
+                        my $FILE = shift(@_);
+                        print $FILE "Internal Consistency Error:", br,
+                        "<font color=\"red\"><pre>\n", $errors,
+                          "</font></pre>", br, "The maintainers have been notified."; });
+
+    delete_files("/tmp/output-xml.$$");
+    exit;
+  }
+  pop @status;
+  push @status, "$validate2_message $done";
+
+##############################################################################
+
+  push @status, "$style_message $processing";
+
+  write_status_page(-status=>[@status]);
+
+  # Figure out what options apply
+  if($query->param("UnifyOptions") eq "Tracing") {
+    $options = [$query->param("GeneralStyleOptions"),
+                $query->param("TracingStyleOptions")];
+  } else {
+    $options = [$query->param("GeneralStyleOptions"),
+                $query->param("StandardStyleOptions")];
+  }
+
+  if($query->param("EPathEnvironment") eq "on") {
+    $options = [@{$options}, 'E-path Environment'];
+  }
+
+  if($query->param("IncludeLegend") eq "on") {
+    $options = [@{$options}, 'Legend'];
+  }
+
+  # Apply a stylesheet to the output from typing inference
+  %output = style_xml(-input=>"/tmp/output-xml.$$",
+                      -output_prefix=>$session,
+                      -style=>$query->param("OutputStyle"),
+                      -options=>$options);
+  delete_files("/tmp/output-xml.$$");
+
+  if($output{'errors'}) {
+    pop @status;
+    push @status, "$style_message $error";
+
+    send_error_report($output{'errors'});
+
+    write_report_page(-status=>[@status],
+                      -reportsub => sub {
+                        my $FILE = shift(@_);
+                        print $FILE "Internal Consistency Error:", br,
+                        "<font color=\"red\"><pre>\n", $output{'errors'},
+                          "</font></pre>", br, "The maintainers have been notified."; });
+
+    delete_files($output{'file'});
+    exit;
+  }
+
+  pop @status;
+  push @status, "$style_message $done";
+
+##############################################################################
+
+  # Done, redirect the user to the output file
+  write_report_page(-status=>[@status],
+                    -refresh=>$output{'file'},
+                    -reportsub=> sub {
+                      my $FILE = shift(@_);
+                      print $FILE br, "<div align=\"right\"><small><small><font color=\"red\">(This URL will become invalid in two minutes.)</font></small></small></div>"; });
+
+  sleep(120);
+  delete_files($output{'file'}, "$session.html");
+}
+
+##############################################################################
+##############################################################################
+
+# The code that displays the actual HTML that handles input
+
+##############################################################################
+
+sub display_form {
+  my $valid_rank = shift(@_);
+  my $valid_term = shift(@_);
+  my $valid_impl = shift(@_);
+  my $valid_epath = shift(@_);
+
+  print $query->header;
+  print $query->start_html(-title=>'System I Experimentation Tool',
+                           -BGCOLOR=>$background_color,
+                           -head=>["<meta http-equiv=\"expires\" content=\"0\">"
+				  ,"<link href=\"style.css\" rel=\"stylesheet\" type=\"text/css\">"]);
+
+  print "<table width=\"100%\"><tr valign=\"top\"><td width=\"75%\">";
+  print "<h1>System I Experimentation Tool</h1>";
+  print "<p>Welcome user@".$query->remote_host()."!</p>";
+
+  print <<END;
+<p>
+
+This web application provides a friendly tool for experimenting with 
+System I.  System I allows inferring principal typings for pure terms of 
+the lambda-calculus with
+intersection types for arbitrary finite ranks.  It is particularly interesting
+because it can infer types for terms that cannot be typed in other commonly
+studied systems, as well as the fact that due to the principal typing
+property, type inference is compositional.  System I was first described in
+Kfoury and Wells's POPL'99 paper, <a
+href="http://types.bu.edu/reports/Kfo+Wel%3APOPL-1999.html">
+<i>Principality and decidable type inference for finite-rank intersection
+types</i></a>.  We are currently in the process of extending System
+I beyond the pure lambda-calculus in order to smoothly handle
+important programming language constructs like variants, conditionals,
+and recursive definitions.
+<br><br>
+Unfortunately, this tool does not presently work with web browsers,
+such as <a href="http://lynx.browser.org/">Lynx</a>, which do not support
+the use of &lt;meta http-equiv="refresh"&gt;.
+<br><br>
+<small>
+Direct bug reports and questions to:<br>
+<small>
+<pre>(fn [user, host] => user ^ "@" ^ host) ["compositional-web-bugs", "types.bu.edu"];</pre>
+</small>
+</small>
+</p>
+</td>
+
+<td align="right">
+ <table class="credits">
+  <caption>Participants</caption>
+  <tr>
+   <td class="people">Geoffrey Washburn</td>
+   <td class="role">Software Engineering</td>
+  </tr>
+  <tr>
+   <td class="people">Assaf Kfoury</td>
+   <td class="role">Theory Consulting</td>
+  </tr>
+  <tr>
+   <td class="people">Joe Wells</td>
+   <td class="role">Theory and Technical Consulting</td>
+  </tr>
+  <tr>
+   <td class="people">Sebastien Carlier</td>
+   <td class="role">Software Engineering</td>
+  </tr>
+  <tr>
+   <td class="people">Bradley Alan</td>
+   <td class="role">Original Unification Code</td>
+  </tr>
+  <tr>
+   <td class="people">Bennett Yates</td>
+   <td class="role">Implementation</td>
+  </tr>
+  <tr>
+   <td class="people">Ori Schwartz</td>
+   <td class="role">Implementation</td>
+  </tr>
+ </table>
+</td>
+
+</tr>
+</table>
+</table>
+END
+
+if(!$valid_impl || !$valid_rank || !$valid_term || !$valid_epath) {
+    print "<font color=\"red\">There is an error in your choice of input and options, see below for details.</font>";
+  }
+
+  print $query->start_multipart_form();
+
+$body = <<END;
+<p>When performing type inference you have three choices.  One can choose 
+to select a term out of the following examples (in <a href="http://www.standardml.org/">Standard ML</a> syntax) that produce
+interesting output:</p>
+END
+
+@radio = $query->radio_group(-name=>'Examples',
+                             -nolabels=>1,
+                             -values=>['(fn x => x) (fn y => y y)', 
+				       '(fn x => fn y => x y) (fn y => y y)', 
+				       '(fn x => z (x (fn f => fn u => f u)) (x (fn v => fn g => g v))) (fn y => y y y)', 
+				       '(fn x => x x) (fn x => x x)'],
+                             -default=>"-");
+
+@examples = (<<END
+<small><tt>
+(*&nbsp;typable at rank 3&nbsp;*)<br />
+$radio[0] (fn x => x) (fn y => y y)<br />
+</tt></small>
+END
+, <<END
+<small><tt>
+(*&nbsp;typable at rank 3&nbsp;*)<br />
+$radio[1] (fn x => fn y => x y) (fn y => y y)<br />
+</tt></small>
+END
+, <<END
+<small><tt>
+(*&nbsp;typable at rank 3, untypable in System F<sub>w</sub>&nbsp;*)<br />
+$radio[2] (fn x => z (x (fn f => fn u => f u)) (x (fn v => fn g => g v))) (fn y => y y y)
+</tt></small>
+END
+, <<END
+<small><tt>
+(*&nbsp;untypable for all ranks&nbsp;*)<br />
+$radio[3] (fn x => x x) (fn x => x x)
+</tt></small>
+END
+);
+$body = $body.gen_altfigure(@examples).br;
+
+$body = $body.<<END;
+<p>Or one may enter a lambda-calculus term for which to infer a principal typing in the text-area below:
+<br />
+<table align="center">
+<tr><td align="center">
+END
+
+$body = $body.$query->textarea(-name=>'Term',
+                               -rows=>4,
+                               -cols=>50);
+
+$body = $body.<<END;
+</td></tr></table>
+
+Or finally, one may select a local file containing a lambda-calculus term to upload:
+<br />
+<table align="center">
+<tr><td align="center">
+END
+$body = $body."File: ".$query->filefield(-name=>'Upload',-size=>40,-maxlength=>32768);
+
+$body = $body.<<END;
+</td></tr></table>
+END
+
+if(!$valid_term) {
+  $body = $body.br."<font color=\"red\">(you must select a term for inference via one of the above methods)</font>";
+}
+
+
+$body = $body."<div align=\"right\">".$query->submit('Action','Infer')."</div>";
+
+print gen_box("Term", $body), br;
+
+
+$body = <<END;
+<p>There are presently three implementations of variations of the System I principal typing inference algorithm.
+<ul>
+<li> The Alan-Washburn implementation closely matches the algorithm for System I presented in the <a href="http://types.bu.edu/reports/Kfo+Wel:POPL-1999.html">original POPL99 paper</a> and the presently unpublished corresponding extended technical report. </li>
+<li> The Yates-Schwartz implementation also closely matches the algorithm for System I presented in the <a href="http://types.bu.edu/reports/Kfo+Wel:POPL-1999.html">original POPL99 paper</a>.</li>
+<li> The Carlier implementation follows an inference algorithm suitable for System I<sub>&#969;</sub>, an extension of System I with the type constant &#969;.  This system and the algorithm used in this implementation are presented in this <a href="http://www.wise-language.org/Carlier_ITRS-2002.ps.gz">ITRS02 paper</a>.   Note that this implementation solves constraints lazily, and as such is able to assign types to both strong and weakly normalizable terms. </li>
+</ul>
+Which implementation would you like to use? &nbsp;
+END
+
+($sml, $java, $haskell) = $query->radio_group(-name=>'Implementation',
+                                  -values=>[ 'SML', 'Java', 'Haskell' ],
+                                  -nolabels=>1,
+                                  -default=>'SML');
+
+$body = $body.<<END;
+$sml Alan-Washburn
+&nbsp;&nbsp;
+$java Yates-Schwartz
+&nbsp;&nbsp;
+$haskell Carlier
+</p>
+END
+
+  print gen_box("Implementation", $body), br;
+
+$body = <<END; 
+<p> If a term has a principal typing in System I, the
+inference engine will find it. However, if a term does not have a typing,
+the unification algorithm will not terminate.  The unification algorithm
+can be made terminating by restricting the highest rank intersection type
+that it will attempt to unify.  Presently, this is only supported by the
+Alan-Washburn implementation.  If this
+restriction is set too low, some typable terms may not have a typing
+inferred for them.  However, in the interest of preventing this CGI from
+using too much of the available system resources, the maximum rank we allow
+is $max_rank.  Regardless, many interesting programs are typable at low
+ranks.  Restrict to rank:&nbsp;
+END
+
+$body = $body.$query->textfield(-name=>'Rank',
+                                -size=>1,
+                                -default=>'3');
+
+  if(!$valid_rank) {
+    $body = $body."<font color=\"red\">(invalid rank)</font>";
+  }
+  $body = $body."</p>";
+
+print gen_box("Unification Options", $body), br;
+
+$body = <<END;
+<p>
+Our lambda-calculus parser is capable of accepting input in several
+different styles of syntax:
+</p>
+END
+
+$syntax = <<END;
+<table width="100%">
+<tr><td align="right">(Standard ML)</td>
+<td><i>e</i></td><td><b>::=</b></td><td><tt>x</tt> <b>|</b> <tt>fn x =&gt; </tt><i>e</i> <b>|</b> <i>e</i><sub>1</sub> <i>e</i><sub>2</sub> <b>|</b> <tt>(</tt> <i>e</i> <tt>)</tt></td></tr>
+<tr><td align="right">(Haskell)</td>
+<td><i>e</i></td><td><b>::=</b></td><td><tt>x</tt> <b>|</b> <tt>\\x<sub>1</sub>&#8230;x<sub>i</sub> -&gt; </tt><i>e</i> <b>|</b> <i>e</i><sub>1</sub> <i>e</i><sub>2</sub> <b>|</b> <tt>(</tt> <i>e</i> <tt>)</tt></td></tr>
+<tr><td align="right">(Scheme)</td>
+<td><i>e</i></td><td><b>::=</b></td><td><tt>x</tt> <b>|</b> <tt>(lambda
+(x) </tt><i>e</i><tt>)</tt> <b>|</b>
+<tt>(</tt><i>e</i><sub>1</sub> <i>e</i><sub>2</sub><tt>)</tt></td></tr>
+</table>
+END
+
+$body = $body.gen_figure($syntax).br;
+
+$body = $body.<<END;
+Which syntax should be used when parsing terms?
+&nbsp;
+END
+$body = $body.$query->radio_group(-name=>'TermLanguage',
+                                  -values=>['SML','Haskell', 'Scheme'],
+                                  -default=>'SML');
+
+if(!$valid_impl) {
+    $body = $body." <font color=\"red\">(if using one of the SML examples above, you must selection SML as your syntax)</font>";
+  }
+
+
+print gen_box("Input Format", $body), br;
+
+$body = <<END; 
+<p> 
+By default the output includes a fairly lengthy and verbose legend.
+More advanced users may wish for their output to omit the legend.
+END
+
+$body =
+$body.$query->checkbox(-name=>'IncludeLegend', -checked=>'on',
+-label=>'Include Legend');
+
+$body = $body.<<END;
+<p> There are two modes of output, standard which includes only the initial
+constraints and the final substitution, and tracing provides a trace of the
+unification process.
+END
+
+$body = $body.$query->radio_group(-name=>'UnifyOptions',
+                                  -values=>['Standard', 'Tracing'],
+                                  -default=>"Standard");
+
+$body = $body.<<END;
+</p>
+<p>
+In some examples the types may become very large making the skeletons
+and derivation difficult to read.  One may opt to only apply expansion
+variable substitutions to the skeletons and derivations
+displayed in the output, which may make those examples easier to read.
+END
+
+$body = $body.$query->checkbox(-name=>'ExpandOnly',
+                               -checked=>'on',
+                               -label=>'Apply Expansions Only');
+
+$body = $body.<<END;
+</p>
+<p>
+The Alan-Washburn implementation computes composed substitutions using safe composition,
+while the Yates-Schwartz implementation computes chains of small substitutions.
+The Carlier implementation works with chains internally, but has an
+option to compose them (using an algorithm different from safe composition).
+END
+
+$body = $body.$query->checkbox(-name=>'ComposeSubstitutions',
+                               -checked=>'on',
+                               -label=>'Compose Substitutions');
+
+$body = $body.<<END;
+</p>
+<p>
+In the Alan-Washburn implementation, E-path Environments are generated and may optionally be included in the output.
+END
+
+$body = $body.$query->checkbox(-name=>'EPathEnvironment',
+                               -value=>'on',
+                               -label=>'Include E-path Environment');
+
+if(!$valid_epath) {
+    $body = $body." <font color=\"red\">(cannot include E-Path Environment when using the Java implementation)</font>";
+  }
+
+$body = $body.<<END;
+</p>
+<p>
+The <a href="http://www.w3.org/XML/">XML</a> output from our inference engines can be rendered using <a href="http://www.w3.org/Style/XSL/">XML Stylesheets</a>
+into several different file formats, which would you like?<br />
+END
+@radio = $query->radio_group(
+                      -name=>'OutputStyle',
+                      -values=>['Raw XML', 'PDF', 'Gzipped PostScript', 'PostScript','XHTML', 'ASCII Text'],
+                      -default=>'PDF');
+
+$xml_radio = shift @radio;
+
+$body = $body."<ul>";
+
+$body = $body."<li>@radio</li>";
+
+$body = $body.<<END;
+</p>
+<p>
+For these formats, you can choose among the following
+items to be included in your output:
+END
+
+$body = $body.$query->checkbox_group(-name=>"GeneralStyleOptions",
+                                     -values=>$general_style_params,
+                                     -defaults=>$general_style_params,
+                                     -rows=>2);
+$body = $body."</p>";
+
+
+$body = $body.<<END;
+</p>
+<p>
+Additional options relevant for standard unification output:
+END
+
+$body = $body.$query->checkbox_group(-name=>"StandardStyleOptions",
+                                     -values=>$standard_style_params,
+                                     -defaults=>$standard_style_params,
+                                     -rows=>2);
+
+$body = $body.<<END;
+</p>
+<p>
+Additional options relevant for tracing unification output:
+END
+
+$body = $body.$query->checkbox_group(-name=>"TracingStyleOptions",
+                                     -values=>$tracing_style_params,
+                                     -defaults=>$tracing_style_params,
+                                     -rows=>2);
+
+$body = $body."</p><li>".$xml_radio;
+$body = $body.<<END;
+</p>
+<p>
+For XML output, the following options are relevant for
+tracing unification output:
+END
+$body = $body.$query->checkbox_group(-name=>"XMLTracingStyleOptions",
+                                     -values=>$xml_tracing_style_params,
+                                     -defaults=>$xml_tracing_style_params,
+                                     -rows=>1);
+
+$body = $body."</p></li></ul>";
+print gen_box("Output Format", $body), br;
+
+$bookmark_url = $query->self_url();
+
+$body = <<END;
+<p> As this tool provides quite a number of configuration options, and it becomes tiresome to readjust your settings on every visit, we provide the option for
+you to generate a bookmark-able URL that will preserve the options as they are presently set on this page.
+END
+
+$body = $body."<div align=\"right\">".$query->submit('Action','Generate')."</div></p>";
+
+  print gen_box("Generate URL", $body), br;
+
+  print $query->endform;
+
+  print $query->end_html;
+}
+
+
+
+##############################################################################
+##############################################################################
+
+# Utility functions
+
+##############################################################################
+
+
+sub write_status_page {
+  my %params = @_;
+  my @status = @{$params{-status}};
+  my $refresh_current = "<meta http-equiv=\"refresh\" content=\"1\"><meta http-equiv=\"expires\" content=\"0\">";
+
+  open(INFO, ">$session.html");
+  print INFO $query->start_html(-title=> "System I Experimentation Tool ($$)",
+                                -BGCOLOR=>$background_color,
+                                -head=>[$refresh_current]);
+
+  print INFO "<h1>System I Experimentation Tool</h1>";
+
+  print INFO gen_altfigure(@status);
+
+  print INFO $query->end_html;
+  close(INFO);
+}
+
+##############################################################################
+
+sub write_report_page {
+  my %params = @_;
+  my @status = @{$params{-status}};
+  my $reportsub = $params{-reportsub};
+  my $refresh = $params{-refresh} ||= "" ;
+
+  open(INFO, ">$session.html");
+  if($refresh) {
+    print INFO $query->start_html(-title=>"System I Experimentation Tool",
+                                  -BGCOLOR=>$background_color,
+                                  -head=>[refresh_to_file(-file=>$refresh)]);
+  } else {
+    print INFO $query->start_html(-title=>"System I Web Experimentation Tool",
+                                  -BGCOLOR=>$background_color);
+  }
+
+  print INFO "<h1>System I Experimentation Tool</h1>";
+
+  print INFO gen_altfigure(@status), br;
+
+  &{$reportsub}(INFO);
+
+
+  print INFO $query->end_html;
+  close(INFO);
+}
+
+##############################################################################
+
+sub refresh_to_file {
+  my %params = @_;
+  my $file = $params{-file};
+
+  return "<meta http-equiv=\"refresh\" content=\"1;url=$file\"><meta http-equiv=\"expires\" content=\"0\">";
+}
+
+##############################################################################
+
+# A function to delete a list of files.  Mainly to abstract away some, rather
+# than calling system everywhere, and it proves a central location to turn
+# of file deletion for debugging purposes
+sub delete_files {
+  system("rm @_");
+}
+
+##############################################################################
+
+sub create_param_string {
+  my @args = @_;
+
+  $params = "";
+  for(@$general_style_params,@$standard_style_params,@$tracing_style_params, ('Legend')) {
+    $option = $_;
+    $option =~ tr/[A-Z\ ]/[a-z_]/;
+    $opt = $_;
+
+    $flag = 0;
+    for(@args) {
+      if($_ eq $opt) {
+        $params = $params." ".$option."=1";
+        $flag = 1;
+        break;
+      }
+    }
+    if($flag == 0) {
+      $params = $params." ".$option."=0";
+    }
+  }
+ return $params;
+}
+
+##############################################################################
+
+# Code to take a title and content and generated HTML for a titled box
+
+sub gen_box {
+  my $title = shift;
+  my $content = shift;
+  my $box_html = <<END;
+<table align="center" width="100%" border="0" bgcolor="black" cellpadding="1" cellspacing="0"><tr><td><table align="center" border="0" cellspacing="0" bgcolor="$header_color" cellpadding="5" width="100%"><tr valign="center"><td><font size="+2">$title</font></td></tr></table><table align="center" border="0" cellspacing="0" bgcolor="white" cellpadding="4" width="100%"><tr valign="center"><td>$content</td></tr></table></td></tr></table>
+END
+  return $box_html;
+}
+
+##############################################################################
+
+# Code to take a list of elements and generate a figure with alternating 
+# colors
+
+sub gen_altfigure {
+  my $box_html = <<END;
+<table align="center" border="0" bgcolor="black" cellpadding="1" cellspacing="0"><tr><td>
+END
+
+  my $index = 0;
+  for(@_) {
+    my $color = undef;
+    if(($index % 2) == 0) {
+      $color = $figure_color;
+    } else {
+      $color = $figure2_color;
+    }
+    $box_html = $box_html.<<END;
+<table align="center" border="0" cellspacing="0" bgcolor="$color" cellpadding="5" width="100%"><tr valign="center"><td>$_</td></tr></table>
+END
+
+  $index++;
+  }
+
+  $box_html = $box_html.<<END;
+</td></tr></table>
+END
+
+  return $box_html;
+}
+
+##############################################################################
+
+# Code to take content and produce a figure box
+
+sub gen_figure {
+  my $figure_html = <<END;
+<table align="center" border="0" bgcolor="black" cellpadding="1" cellspacing="0"><tr><td><table align="center" border="0" bgcolor="$figure_color" width="100%" cellpadding="4" cellspacing="0"><tr><td>@_</td></tr></table></td></tr></table>
+END
+  return $figure_html;
+}
+
+##############################################################################
+
+sub parse_term {
+  my %params = @_;
+  my $term = $params{-term};
+  my $language = $params{-language};
+  my $output = $params{-output};
+  my $errors = "/tmp/errors.$$";
+
+  $language =~ tr/[A-Z]/[a-z]/;
+  open(PARSER, "| $lambda2xml -$language > $output 2> $errors");
+  print PARSER $term;
+  close(PARSER);
+
+  open(ERRORS, $errors);
+  @output = <ERRORS>;
+  close(ERRORS);
+
+  delete_files($errors);
+
+  return "@output";
+}
+
+##############################################################################
+
+sub validate_xml {
+  my %params = @_;
+  my $input = $params{-input};
+  my $schema = $params{-schema};
+  my $output = "/tmp/xml-errors.$$";
+
+  system("$java $msv $schema $input > $output");
+
+  open(XML_ERRORS, $output);
+  @output = <XML_ERRORS>;
+  close(XML_ERRORS);
+
+  delete_files($output);
+
+  if(grep /Error|NOT valid|failed/i, @output) {
+    return "@output";
+  } else {
+    return "";
+  }
+}
+
+##############################################################################
+
+sub infer_typing {
+  my %params = @_;
+  my $input = $params{-input};
+  my $output = $params{-output};
+  my $rank = $params{-rank};
+  my $implementation = $params{-implementation};
+  my $timeout = $false;
+  my $other = $false;
+  my $opts = "";
+
+  if($query->param("ExpandOnly") eq "on") {
+    $opts = $opts." --expand-only";
+  }
+
+  if($query->param("UnifyOptions") eq "Tracing") {
+    $opts = $opts." --trace";
+    if($query->param("OutputStyle") eq "Raw XML") {
+      if(grep /Selected Substitutions/i, $query->param("XMLTracingStyleOptions")) {
+        $opts = $opts." --trace-selected";
+      }
+      if(grep /Incremental Skeletons/i, $query->param("XMLTracingStyleOptions")) {
+        $opts = $opts." --trace-skeleton";
+      }
+    } else {
+      if(grep /Selected Substitutions/i, $query->param("TracingStyleOptions")) {
+        $opts = $opts." --trace-selected";
+      }
+      if(grep /Incremental Skeletons/i, $query->param("TracingStyleOptions")) {
+        $opts = $opts." --trace-skeleton";
+      }
+    }
+  }
+
+  my $childpid = fork;
+  if($childpid == 0) {
+    if($implementation eq "SML") {
+      $cmd  = "$sml_inference";
+
+      if($query->param("UnifyOptions") eq "Tracing") {
+        if($query->param("EPathEnvironment") eq "on") {
+          $opts = $opts." --epathenv";
+        }
+      } else {
+        if($query->param("EPathEnvironment") eq "on") {
+          $opts = $opts." --epathenv";
+        }
+      }
+
+      $cmd = $cmd." ".$opts." --rank $rank $input > $output";
+      exec($cmd);
+    } elsif($implementation eq "Haskell") {
+	# FIXME
+	$opts = "";
+	# Apply Expansions Only
+	if ($query->param("ExpandOnly") eq "on") {
+	    $opts = $opts." --expand-only";
+	}
+	# Compose Substitutions
+	if ($query->param("ComposeSubstitutions") eq "on") {
+	    $opts = $opts." --compose-substitutions";
+	}
+	# General Style Options
+	if (grep /Initial Typing Judgement/i, $query->param("GeneralStyleOptions") || grep /Initial Skeleton/i, $query->param("GeneralStyleOptions")) {
+	    # Initial typing judgement is extracted from the initial skeleton
+	    $opts = $opts." --initial-skeleton";
+	}
+	if (grep /Unification Information/i, $query->param("GeneralStyleOptions")) {
+	    # Unification Information option is not supported.
+	}
+	if (grep /Final Skeleton or Derivation/i, $query->param("GeneralStyleOptions")) {
+	    $opts = $opts." --derivation";
+	}
+	if (grep /Final Typing Judgement/i, $query->param("GeneralStyleOptions")) {
+	    $opts = $opts." --judgement";
+	}
+	if ($query->param("UnifyOptions") eq "Tracing") {
+	    # Tracing unification output
+	    $opts = $opts." --trace";
+	    if($query->param("OutputStyle") eq "Raw XML") {
+		# FIXME: always --trace-constraints and --trace-composed ?
+		if(grep /Selected Substitutions/i, $query->param("XMLTracingStyleOptions")) {
+		    $opts = $opts." --trace-selected";
+		}
+		if(grep /Incremental Skeletons/i, $query->param("XMLTracingStyleOptions")) {
+		    $opts = $opts." --trace-skeleton";
+		}
+	    } else {
+		if (grep /Constraint Sets/i, $query->param("TracingStyleOptions")) {
+		    $opts = $opts." --trace-constraints";
+		}
+		if (grep /Substitutions/i, $query->param("TracingStyleOptions")) {
+		    $opts = $opts." --trace-composed";
+		}
+		if(grep /Selected Substitutions/i, $query->param("TracingStyleOptions")) {
+		    $opts = $opts." --trace-selected";
+		}
+		if(grep /Incremental Skeletons/i, $query->param("TracingStyleOptions")) {
+		    $opts = $opts." --trace-skeleton";
+		}
+	    }
+	} else {
+	    # Standard unification output
+	    if (grep /Initial Generated Constraint Set/i, $query->param("StandardStyleOptions")) {
+		$opts = $opts." --initial-constraints";
+	    }
+	    if (grep /Final Substitution/i, $query->param("StandardStyleOptions")) {
+		$opts = $opts." --final-substitution";
+	    }
+	    # Constraint Set at Failure is not supported (inference never fails)
+	}
+
+	open(INFER, "| $haskell_inference $opts > $output");
+	open(XML, $input);
+	print INFER <XML>;
+	close(XML);
+	close(INFER);
+	
+    } elsif($implementation eq "Java") {
+      open(INFER, "| $java $java_inference $opts > $output");
+      open(XML, $input);
+      print INFER <XML>;
+      close(XML);
+      close(INFER);
+    }
+    exit;
+  } else {
+    eval {
+      local $SIG{ALRM} = sub {
+        die("timedout");
+      };
+      alarm(120);
+      waitpid($childpid, 0);
+      alarm(0);
+    };
+    if ($@ and $@ =~ /timedout/) {
+      $timeout = $true;
+      kill 9, $childpid;
+    }
+  }
+
+  if($timeout) {
+    return 2;
+  }
+
+  open(XML, $output);
+  @output = <XML>;
+  close(XML);
+
+  if(grep /inference-failure/i, @output) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+##############################################################################
+
+sub style_xml {
+  my %params = @_;
+  my $input = $params{-input};
+  my $output_prefix = $params{-output_prefix};
+  my $style = $params{-style};
+  my @options= @{$params{-options}};
+  my $style_error = "/tmp/xslt-error.$$";
+
+  $params = create_param_string(@options);
+
+  if($style eq "Raw XML") {
+    $output_file = "$output_prefix.xml";
+    system("cp $input $output_file > $style_error");
+
+  } elsif ($style eq "ASCII Text") {
+    $output_file = "$output_prefix.txt";
+    system("$java $saxon $input $text_stylesheet $params > $output_file 2> $style_error");
+
+  } elsif ($style eq "XHTML") {
+    $output_file = "$output_prefix.xhtml";
+    system("$java $saxon $input $xhtml_stylesheet $params > $output_file 2> $style_error");
+  } elsif ($style eq "PostScript") {
+    my $tmp_output = "/tmp/output.$$";
+    my $tex_output = "$tmp_output.tex";
+    $output_file = "$output_prefix.ps";
+
+    system("$java $saxon $input $postscript_stylesheet $params > $tex_output 2> $style_error");
+
+    system("cd /tmp; $latex $tex_output > /dev/null 2> /dev/null");
+
+    system("$dvips -q $tmp_output -o $output_file");
+    delete_files("$tmp_output*");
+
+  } elsif ($style eq "PDF") {
+    my $tmp_output = "/tmp/output.$$";
+    my $tex_output = "$tmp_output.tex";
+    my $ps_output = "$tmp_output.ps";
+    my $pdf_output = "$tmp_output.pdf";
+    $output_file = "$output_prefix.pdf";
+
+    system("$java $saxon $input $postscript_stylesheet $params > $tex_output 2> $style_error");
+
+    system("cd /tmp; $latex $tex_output > /dev/null 2> /dev/null");
+
+    system("$dvips -q $tmp_output -o $ps_output");
+    system("$ps2pdf $ps_output $pdf_output");
+    system("cp $pdf_output $output_file");
+ 
+    delete_files("$tmp_output*");
+
+  } elsif ($style eq "Gzipped PostScript") {
+    my $tmp_output = "/tmp/output.$$";
+    my $tex_output = "$tmp_output.tex";
+    my $ps_output = "$tmp_output.ps";
+    $output_file = "$output_prefix.ps.gz";
+
+    system("$java $saxon $input $postscript_stylesheet $params > $tex_output 2> $style_error");
+
+    system("cd /tmp; $latex $tex_output > /dev/null 2> /dev/null");
+
+    system("$dvips -q $tmp_output -o $ps_output");
+    system("$gzip -c $ps_output > $output_file");
+ 
+    delete_files("$tmp_output*");
+
+  } else {
+    # do something appropriate
+  }
+
+  open(STYLE_ERRORS, $style_error);
+  @errors = <STYLE_ERRORS>;
+  close(STYLE_ERRORS);
+
+  delete_files($style_error);
+
+  return ( file => $output_file, errors => "@errors" );
+}
+
+##############################################################################
+
+# Code to send a report to the the maintainers, along with data about the
+# input to the CGI that caused the error
+sub send_error_report {
+
+  open(MAIL, "| mail -t $error_report_address");
+
+  print MAIL "Subject: Internal Consistency Error in System I CGI\n\n";
+
+  print MAIL "Message:\n";
+  print MAIL "\n @_";
+
+  print MAIL "CGI called with:\n";
+  for($query->param) {
+    print MAIL $_, " := ", (join(" ", $query->param("$_"))), "\n\n";
+  }
+
+  print MAIL "Remote host := ", $query->remote_host(), "\n\n";
+  print MAIL "Remote addr := ", $query->remote_addr(), "\n\n";
+  print MAIL "Remote ident := ", $query->remote_ident(), "\n\n";
+  print MAIL "Remote user agent := ", $query->user_agent(), "\n\n";
+
+  close(MAIL);
+
+}
+
+##############################################################################
