@@ -27,5 +27,4 @@ document.write('\
 			</div>   <!-- end answer -->\
 	</div><!-- end question -->\
 </div> <!-- end 2012-->\
-</div>\
 ');
