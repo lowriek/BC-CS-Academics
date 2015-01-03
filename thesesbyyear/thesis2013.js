@@ -1,6 +1,6 @@
 document.write('\
 <div class="well">\
-	<h3>Theses for 2013</h3>\
+	<h3>2013 Honors Theses</h3>\
 	<div class="q">	\
 		<h3 class="qhead"><a href="#q201301">Low-Overhead Concurrency Control Using State-Based Transaction Scheduling</a></h3>\
 		<div class="answer" id="q201301">\

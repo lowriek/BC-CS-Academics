@@ -1,4 +1,3 @@
-// javascript template for thesis years  - remember to change all \r to \\\r  */\
 document.write('\
 <div class="well">\
 	<h3>2010 Honors Theses</h3>				\

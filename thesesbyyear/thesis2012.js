@@ -1,6 +1,6 @@
 document.write('\
 <div class="well">\
-	<h3>Theses for 2012</h3>	\
+	<h3>2012 Honors Theses</h3>	\
 		<!-- IMPORTANT NOTE: Phil Temples is still searching for both 2012 attachments, so for now, the\
 		     title for this thesis does not have an href link to it, it is simply the title with no attachment linked to it. -->\
 	<div class="q">	\
