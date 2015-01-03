@@ -2,7 +2,7 @@ document.write('\
 <div class="well">\
 	<h3>2001 Honors Theses</h3>				\
 	<div class="q">	\
-		<h3 class="qhead"><a href="#q200101">TITLE</a></h3>\
+		<h3 class="qhead"><a href="#q200101">Communication via Eye Blinks - Detection and Duration Analysis in Real Time</a></h3>\
 		<div class="answer" id="q200101">\
 			<p><b>Author:</b> Kristen Grauman</p>\
 			<p><b>Title:</b> <a href="pdf/01KristenGrauman.pdf"><em> Communication via Eye Blinks - Detection and Duration Analysis in Real Time</em></a></p>\
