@@ -13,8 +13,8 @@ document.write('\
 		</div>   <!-- end answer -->\
 	</div><!-- end question -->\
 	<div class="q">	\
-		<h3 class="qhead"><a href="#q200401">Construction of a Database of Annotated Natural Human Motion and its Application to Benchmarking</a></h3>\
-		<div class="answer" id="q200401">\
+		<h3 class="qhead"><a href="#q200402">Construction of a Database of Annotated Natural Human Motion and its Application to Benchmarking</a></h3>\
+		<div class="answer" id="q200402">\
 			<p><b>Author:</b> Adam Chmielewski</p>\
 			<p><b>Title:</b> <a href="pdf/04AdamChmielewski.pdf"><em> Construction of a Database of Annotated Natural Human Motion and its Application to Benchmarking</em></a></p>\
 			<p><b>Advisor:</b> David Martin</p>\
@@ -23,10 +23,10 @@ document.write('\
 		</div>   <!-- end answer -->\
 	</div><!-- end question -->	\
 	<div class="q">	\
-		<h3 class="qhead"><a href="#q200401">Evaluating and Implementing Recommender Systems as Web Services Using Apache Mahout</a></h3>\
-		<div class="answer" id="q200401">\
+		<h3 class="qhead"><a href="#q200403">Face Based Indexing of Digital Photo Albums</a></h3>\
+		<div class="answer" id="q200403">\
 			<p><b>Author:</b> Matt Veino</p>\
-			<p><b>Title:</b> <a href="pdf/04MattVeino.pdf"><em>Evaluating and Implementing Recommender Systems as Web Services Using Apache Mahout</em></a></p>\
+			<p><b>Title:</b> <a href="pdf/04MattVeino.pdf"><em>Face Based Indexing of Digital Photo Albums</em></a></p>\
 			<p><b>Advisor:</b> Sergio Alvarez</p>\
 			<p><b>Abstract</b></p>\
 			<p><font size="4">Managing a large collection of digital snapshots -- even for the average amateur digital photographer -- is a chore. Searching is often limited to captions, but writing a descriptive caption for each photo is overly tedious. We aim to simplify the management of a collection of photos by enabling searches on the content of the photographs themselves while minimizing the amount of supervision by the user. We focus on the problem of finding faces in photographs. The user identifies a small number of faces in the photo collection. Once we have these faces, we can run algorithms on other pictures to search through and find faces in the photographs. Once we have locations of faces, we will attempt to recognize the individuals.</font></p>\
