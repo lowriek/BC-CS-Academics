@@ -7,6 +7,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="">
     <meta name="author" content="">
+    <style>
+    	/* this is to make links to the anchors drop from the top of the page a bit. */
+		.row {
+			padding-top: 60px;
+			margin-top: -50px;
+		}
+    </style>
 
     <title>BC CS Classes</title>
 
@@ -28,7 +35,7 @@
 <body>
 
     <!-- Navigation -->
- 	<script src="inc/navigation.js"></script>
+ 	<script src="js/navigation.js"></script>
 
     <!-- Page Content -->
     <div class="container">
@@ -77,9 +84,8 @@
         </div>
         <div class="col-md-9">
 			<p>
-This course is an introduction to the world of computer programming and some of the fundamental concepts of computer science. You will learn to write programs in a modern programming language, such as Python or ML. By the end of the course you will be able to design fairly complex programs that do interesting and useful things. You will also study some of the basic notions of computer science, including computer system organization, files, and some algorithms of fundamental importance. The course assumes no previous programming experience.
-
-You may enroll in either a Python-based section or an ML-based section.  The latter would be an appropriate choice for you if you are more mathematically inclined.  Both sections will prepare you well for the follow-on course CSCI 1102.
+				This course is an introduction to the world of computer programming and some of the fundamental concepts of computer science. You will learn to write programs in a modern programming language, such as Python or ML. By the end of the course you will be able to design fairly complex programs that do interesting and useful things. You will also study some of the basic notions of computer science, including computer system organization, files, and some algorithms of fundamental importance. The course assumes no previous programming experience.
+				You may enroll in either a Python-based section or an ML-based section.  The latter would be an appropriate choice for you if you are more mathematically inclined.  Both sections will prepare you well for the follow-on course CSCI 1102.
         	</p>
         </div>
     </div>
@@ -94,12 +100,30 @@ You may enroll in either a Python-based section or an ML-based section.  The lat
         </div>
     </div>
     <hr>
-  	<div class="row" id="CSCI1154">
+  	<div class="row" id="CSCI1103">
+        <div class="col-md-3">
+        	<h3>CSCI 1103 </h3><h4>Computer Science I Honors (fall/spring)</h4>
+        </div>
+        <div class="col-md-9">
+			<em>Description: CSCI 1103 is a good choice for students with strong backgrounds in mathematics. Students who are unsure about the fit should consult with <a href="http://www.cs.bc.edu/~muller/">Professor Muller.</a> </em>
+			This is the honors introductory computer science course. The course is organized around three themes: 1. computation, as a subject of study, 2. coding, as a skill and 3. computer science, as an introduction to the field. The first half of the course explores computation from a simple mathematical perspective. From this point of view, computing can be understood as an extension of basic algebra. Midway through, the course turns to a machine-oriented view, considering storage and processor architecture, mutation and mutation-based repetition idioms. The course explores a number of fundamental algorithms with applications in various disciplines. Good program design methodology is stressed throughout. The course is taught using the OCaml programming language. Students will be well prepared for the follow-on course CSCI 1102 Computer Science II.
+        </div>
+    </div>
+    <hr>  	<div class="row" id="CSCI1154">
         <div class="col-md-3">
         	<h3>CSCI 1154 </h3><h4>Intro to Programming and Web Applications (spring)</h4>
         </div>
         <div class="col-md-9">
         	In this course, students create interactive web-based applications.  We begin by learning how to use HTML and CSS to create simple web pages.  Topics include basic databases, SQL queries, and client-side scripts.  Sample projects may include shopping-cart based sales, student registration systems, etc.  The course is currently taught using JavaScript and MySQL. No prior programming experience is required.
+        </div>
+    </div>
+	<hr>    
+  	<div class="row" id="CSCI2201">
+    <div class="col-md-3">
+        	<h3>CSCI 2201</h3><h4>Computer Security (periodically)</h4>
+        </div>
+        <div class="col-md-9">
+        	The instructor, Etay Maor, is a computer security expert at IBM.  Last fall he gave a series of informal lectures to the student ACM group.  This course is an expansion of those themes.  
         </div>
     </div>
 	<hr>    
@@ -233,7 +257,7 @@ You may enroll in either a Python-based section or an ML-based section.  The lat
   	<div class="row" id="CSCI3343">
     <div class="col-md-3">
         	<h3>CSCI 3343</h3><h4>Computer Vision  (fall, alternate years)</h4>
-        	Prerequisites:  CSCI 1102, MATH 2202, MATH 2210
+        	Prerequisites:  CSCI 1102, CSCI 2244
         </div>
         <div class="col-md-9">
 			Computers are gaining abilities to “see” things just like our vision system.  Face recognition has been embedded in almost all the digital cameras.  Car detection and tracking have been used in self-driving vehicles.  Modern search engines are not only able to find similar text patterns but also able to search for similar objects in huge image databases.  This course introduces principles and computational methods of obtaining information from images and videos.  Topics include image processing, shape analysis, image matching, segmentation, 3D projective geometry, object tracking, human pose and action, image retrieval, and object recognition.  
@@ -263,6 +287,7 @@ You may enroll in either a Python-based section or an ML-based section.  The lat
   	<div class="row" id="CSCI3346">
     <div class="col-md-3">
         	<h3>CSCI 3346</h3><h4>Data Mining (spring, alternate years)</h4>
+        	Prerequisite:  CSCI 1102, CSCI 2244
         </div>
         <div class="col-md-9">
 			The goal of data mining is to discover patterns in data that are informative and useful.  This course provides an overview of the field of knowledge discovery and data mining, which deals with the semi-automated analysis of large collections of data that arise in contexts ranging from medical informatics and bioinformatics to e-commerce and security. The course will cover fundamental data mining tasks, relevant concepts and techniques from machine learning and statistics and data mining applications to real-world domains such as e-mail filtering, gene expression, analysis of biomedical signals, and fraud detection. 
@@ -300,6 +325,7 @@ You may enroll in either a Python-based section or an ML-based section.  The lat
   	<div class="row" id="CSCI3356">
     	<div class="col-md-3">
         	<h3>CSCI 3356</h3><h4>Software Engineering (spring, alternate years)</h4>
+        	Prerequisite:  CSCI 3353
         </div>
         <div class="col-md-9">
 			This course covers industrial system development using object-oriented techniques. Students will learn a methodical approach to the development of software and will use this methodology to design, implement, test and evolve Java applications. Students will work in teams to develop applications, experiencing the different roles that are required on projects in industry.
@@ -310,9 +336,11 @@ You may enroll in either a Python-based section or an ML-based section.  The lat
     	<div class="col-md-3">
         	<h3>CSCI 3357</h3><h4>Database System Implementation (spring, alternate years)</h4>
         	Prerequisite:  CSCI 1102
-			This course will not cover the use of commercial database systems; students interested in that topic should consider taking CSCI 2257
-        </div>
+			        </div>
         <div class="col-md-9">
+        	<p>
+        		<em>This course will not cover the use of commercial database systems; students interested in that topic should consider taking CSCI 2257.</em>
+			</p>
             <p>
 				A database system is an amazingly sophisticated piece of software.  It contains (1) a language interpreter, for processing user queries; (2) query rewrite strategies, for transforming inefficient queries into more efficient ones; (3) complex algorithms for indexing data, to support fast access; (4) a separate file system from that of the operating system, for managing the disk efficiently; (5) recovery mechanisms, for ensuring database integrity when the system crashes; and (6) an ability to handle concurrent accesses from multiple users. In this course we examine the various algorithms, data structures, and techniques for implementing these features.  And to make these theoretical ideas concrete, we will also examine the Java source code for a real-life database system – first to see how it works, and then to write our own additions and improvements to it.  
         	</p>
