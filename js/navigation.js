@@ -17,7 +17,7 @@ document.write('\
 					<a href="programs.html">Programs</a>\
 				</li>\
 				<li>\
-					<a href="classes.html">Classes</a>\
+					<a href="courses.html">Courses</a>\
 				</li>\
 				<li>\
 					<a href="sampleplan.html">Sample Plan of Study</a>\
