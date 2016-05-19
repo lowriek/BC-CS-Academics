@@ -1,5 +1,5 @@
 document.write('\
-	<div class="well">\
+<div class="well">\
 	<h3>2014 Honors Theses</h3>\
 	<div class="q">	\
 		<h3 class="qhead"><a href="#q201401">Learning Distributed Representations Of Natural Language with Artificial Neural Networks</a></h3>\
