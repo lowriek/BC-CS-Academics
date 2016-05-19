@@ -6,7 +6,7 @@ document.write('\
 		<h3 class="qhead"><a href="#q201501">Neuroprosthetics: An Investigation into Utilizing EEG Brain Waves to Control a Robotic Arm</a></h3>\
 		<div class="answer" id="q201501">\
 			<p><b>Author:</b>Jake St. Germain</p>\
-			<p><b>Title:</b> <a href="15JakeStGermain.pdf"><em>Neuroprosthetics: An Investigation into Utilizing EEG Brain Waves to Control a Robotic Arm</em></a></p>\
+			<p><b>Title:</b> <a href="pdf/15JakeStGermain.pdf"><em>Neuroprosthetics: An Investigation into Utilizing EEG Brain Waves to Control a Robotic Arm</em></a></p>\
 			<p><b>Advisor:</b> Sergio Alvarez</p>\
 			<p><b>Abstract</b></p>\
 			<p><font size="4">\
@@ -19,7 +19,7 @@ document.write('\
 		<h3 class="qhead"><a href="#q201502">Mutational Fuzzing to Discover Software Bugs and Vulnerabilities</a></h3>\
 		<div class="answer" id="q201502">\
 			<p><b>Author:</b>Dylan Wolff</p>\
-			<p><b>Title:</b> <a href="15DylanWolff.pdf"><em>Mutational Fuzzing to Discover Software Bugs and Vulnerabilities</em></a></p>\
+			<p><b>Title:</b> <a href="pdf/15DylanWolff.pdf"><em>Mutational Fuzzing to Discover Software Bugs and Vulnerabilities</em></a></p>\
 			<p><b>Advisor:</b> Sergio Alvarez</p>\
 			<p><b>Abstract</b></p>\
 			<p><font size="4">\
